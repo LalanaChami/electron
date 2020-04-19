@@ -18,7 +18,7 @@ method, i.e.
 ```javascript
 const { app, globalShortcut } = require('electron')
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   // Register a 'CommandOrControl+Y' shortcut listener.
   globalShortcut.register('CommandOrControl+Y', () => {
     // Do stuff when Y and either Command/Control is pressed.
@@ -54,12 +54,13 @@ The `Super` key is mapped to the `Windows` key on Windows and Linux and
 * `0` to `9`
 * `A` to `Z`
 * `F1` to `F24`
-* Punctuations like `~`, `!`, `@`, `#`, `$`, etc.
+* Punctuation like `~`, `!`, `@`, `#`, `$`, etc.
 * `Plus`
 * `Space`
 * `Tab`
 * `Capslock`
 * `Numlock`
+* `Scrolllock`
 * `Backspace`
 * `Delete`
 * `Insert`

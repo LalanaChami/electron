@@ -15,7 +15,7 @@ event of the app module is emitted.
 ```javascript
 const { app, globalShortcut } = require('electron')
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   // Register a 'CommandOrControl+X' shortcut listener.
   const ret = globalShortcut.register('CommandOrControl+X', () => {
     console.log('CommandOrControl+X is pressed')
@@ -46,6 +46,8 @@ The `globalShortcut` module has the following methods:
 
 * `accelerator` [Accelerator](accelerator.md)
 * `callback` Function
+
+Returns `Boolean` - Whether or not the shortcut was registered successfully.
 
 Registers a global shortcut of `accelerator`. The `callback` is called when
 the registered shortcut is pressed by the user.
