@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "shell/common/api/remote/object_life_monitor.h"
+#include "shell/common/api/object_life_monitor.h"
 
 namespace electron {
 
@@ -30,6 +30,16 @@ RenderFrameFunctionStore::~RenderFrameFunctionStore() = default;
 void RenderFrameFunctionStore::OnDestruct() {
   GetStoreMap().erase(routing_id_);
   delete this;
+}
+
+void RenderFrameFunctionStore::WillReleaseScriptContext(
+    v8::Local<v8::Context> context,
+    int32_t world_id) {
+  base::EraseIf(functions_, [context](auto const& pair) {
+    v8::Local<v8::Context> func_owning_context =
+        std::get<1>(pair.second).Get(context->GetIsolate());
+    return func_owning_context == context;
+  });
 }
 
 }  // namespace context_bridge

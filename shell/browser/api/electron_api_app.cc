@@ -39,11 +39,11 @@
 #include "shell/browser/api/gpuinfo_manager.h"
 #include "shell/browser/electron_browser_context.h"
 #include "shell/browser/electron_browser_main_parts.h"
-#include "shell/browser/electron_paths.h"
 #include "shell/browser/login_handler.h"
 #include "shell/browser/relauncher.h"
 #include "shell/common/application_info.h"
 #include "shell/common/electron_command_line.h"
+#include "shell/common/electron_paths.h"
 #include "shell/common/gin_converters/callback_converter.h"
 #include "shell/common/gin_converters/file_path_converter.h"
 #include "shell/common/gin_converters/gurl_converter.h"
@@ -54,6 +54,7 @@
 #include "shell/common/gin_helper/object_template_builder.h"
 #include "shell/common/node_includes.h"
 #include "shell/common/options_switches.h"
+#include "shell/common/platform_util.h"
 #include "ui/gfx/image/image.h"
 
 #if defined(OS_WIN)
@@ -403,6 +404,8 @@ int GetPathConstant(const std::string& name) {
     return DIR_USER_CACHE;
   else if (name == "logs")
     return DIR_APP_LOGS;
+  else if (name == "crashDumps")
+    return DIR_CRASH_DUMPS;
   else if (name == "home")
     return base::DIR_HOME;
   else if (name == "temp")
@@ -423,6 +426,10 @@ int GetPathConstant(const std::string& name) {
     return chrome::DIR_USER_PICTURES;
   else if (name == "videos")
     return chrome::DIR_USER_VIDEOS;
+#if defined(OS_WIN)
+  else if (name == "recent")
+    return electron::DIR_RECENT;
+#endif
   else if (name == "pepperFlashSystemPlugin")
     return chrome::FILE_PEPPER_FLASH_SYSTEM_PLUGIN;
   else
@@ -851,13 +858,19 @@ void App::SetAppLogsPath(gin_helper::ErrorThrower thrower,
       thrower.ThrowError("Path must be absolute");
       return;
     }
-    base::PathService::Override(DIR_APP_LOGS, custom_path.value());
+    {
+      base::ThreadRestrictions::ScopedAllowIO allow_io;
+      base::PathService::Override(DIR_APP_LOGS, custom_path.value());
+    }
   } else {
     base::FilePath path;
     if (base::PathService::Get(DIR_USER_DATA, &path)) {
       path = path.Append(base::FilePath::FromUTF8Unsafe(GetApplicationName()));
       path = path.Append(base::FilePath::FromUTF8Unsafe("logs"));
-      base::PathService::Override(DIR_APP_LOGS, path);
+      {
+        base::ThreadRestrictions::ScopedAllowIO allow_io;
+        base::PathService::Override(DIR_APP_LOGS, path);
+      }
     }
   }
 }
@@ -874,10 +887,18 @@ base::FilePath App::GetPath(gin_helper::ErrorThrower thrower,
     // If users try to get the logs path before setting a logs path,
     // set the path to a sensible default and then try to get it again
     if (!succeed && name == "logs") {
-      base::ThreadRestrictions::ScopedAllowIO allow_io;
       SetAppLogsPath(thrower, base::Optional<base::FilePath>());
       succeed = base::PathService::Get(key, &path);
     }
+
+#if defined(OS_WIN)
+    // If we get the "recent" path before setting it, set it
+    if (!succeed && name == "recent" &&
+        platform_util::GetFolderPath(DIR_RECENT, &path)) {
+      base::ThreadRestrictions::ScopedAllowIO allow_io;
+      succeed = base::PathService::Override(DIR_RECENT, path);
+    }
+#endif
   }
 
   if (!succeed)

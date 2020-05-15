@@ -89,6 +89,7 @@
 #include "shell/common/gin_converters/value_converter.h"
 #include "shell/common/gin_helper/dictionary.h"
 #include "shell/common/gin_helper/object_template_builder.h"
+#include "shell/common/language_util.h"
 #include "shell/common/mouse_util.h"
 #include "shell/common/node_includes.h"
 #include "shell/common/options_switches.h"
@@ -100,6 +101,7 @@
 #include "third_party/blink/public/mojom/frame/find_in_page.mojom.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/messaging/transferable_message.mojom.h"
+#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/base/mojom/cursor_type.mojom-shared.h"
 #include "ui/display/screen.h"
@@ -121,7 +123,6 @@
 #endif
 
 #if defined(OS_LINUX) || defined(OS_WIN)
-#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "ui/gfx/font_render_params.h"
 #endif
 
@@ -535,7 +536,22 @@ void WebContents::InitWithSessionAndOptions(
   managed_web_contents()->GetView()->SetDelegate(this);
 
   auto* prefs = web_contents()->GetMutableRendererPrefs();
-  prefs->accept_languages = g_browser_process->GetApplicationLocale();
+
+  // Collect preferred languages from OS and browser process. accept_languages
+  // effects HTTP header, navigator.languages, and CJK fallback font selection.
+  //
+  // Note that an application locale set to the browser process might be
+  // different with the one set to the preference list.
+  // (e.g. overridden with --lang)
+  std::string accept_languages =
+      g_browser_process->GetApplicationLocale() + ",";
+  for (auto const& language : electron::GetPreferredLanguages()) {
+    if (language == g_browser_process->GetApplicationLocale())
+      continue;
+    accept_languages += language + ",";
+  }
+  accept_languages.pop_back();
+  prefs->accept_languages = accept_languages;
 
 #if defined(OS_LINUX) || defined(OS_WIN)
   // Update font settings.
@@ -981,6 +997,11 @@ void WebContents::RenderViewDeleted(content::RenderViewHost* render_view_host) {
 
 void WebContents::RenderProcessGone(base::TerminationStatus status) {
   Emit("crashed", status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED);
+  v8::HandleScope handle_scope(isolate());
+  gin_helper::Dictionary details =
+      gin_helper::Dictionary::CreateEmpty(isolate());
+  details.Set("reason", status);
+  Emit("render-process-gone", details);
 }
 
 void WebContents::PluginCrashed(const base::FilePath& plugin_path,
@@ -1416,6 +1437,10 @@ void WebContents::NavigationEntryCommitted(
     const content::LoadCommittedDetails& details) {
   Emit("navigation-entry-committed", details.entry->GetURL(),
        details.is_same_document, details.did_replace_entry);
+}
+
+bool WebContents::GetBackgroundThrottling() const {
+  return background_throttling_;
 }
 
 void WebContents::SetBackgroundThrottling(bool allowed) {
@@ -2299,7 +2324,8 @@ void WebContents::SendInputEvent(v8::Isolate* isolate,
         // Chromium expects phase info in wheel events (and applies a
         // DCHECK to verify it). See: https://crbug.com/756524.
         mouse_wheel_event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
-        mouse_wheel_event.dispatch_type = blink::WebInputEvent::kBlocking;
+        mouse_wheel_event.dispatch_type =
+            blink::WebInputEvent::DispatchType::kBlocking;
         rwh->ForwardWheelEvent(mouse_wheel_event);
 
         // Send a synthetic wheel event with phaseEnded to finish scrolling.
@@ -2308,7 +2334,7 @@ void WebContents::SendInputEvent(v8::Isolate* isolate,
         mouse_wheel_event.delta_y = 0;
         mouse_wheel_event.phase = blink::WebMouseWheelEvent::kPhaseEnded;
         mouse_wheel_event.dispatch_type =
-            blink::WebInputEvent::kEventNonBlocking;
+            blink::WebInputEvent::DispatchType::kEventNonBlocking;
         rwh->ForwardWheelEvent(mouse_wheel_event);
       }
       return;
@@ -2346,7 +2372,7 @@ void WebContents::StartDrag(const gin_helper::Dictionary& item,
   }
 
   gin::Handle<NativeImage> icon;
-  if (!item.Get("icon", &icon)) {
+  if (!item.Get("icon", &icon) || icon->image().IsEmpty()) {
     args->ThrowError("Must specify non-empty 'icon' option");
     return;
   }
@@ -2697,6 +2723,8 @@ void WebContents::BuildPrototype(v8::Isolate* isolate,
   prototype->SetClassName(gin::StringToV8(isolate, "WebContents"));
   gin_helper::Destroyable::MakeDestroyable(isolate, prototype);
   gin_helper::ObjectTemplateBuilder(isolate, prototype->PrototypeTemplate())
+      .SetMethod("getBackgroundThrottling",
+                 &WebContents::GetBackgroundThrottling)
       .SetMethod("setBackgroundThrottling",
                  &WebContents::SetBackgroundThrottling)
       .SetMethod("getProcessId", &WebContents::GetProcessID)

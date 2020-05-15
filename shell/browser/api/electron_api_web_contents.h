@@ -34,7 +34,7 @@
 #if BUILDFLAG(ENABLE_PRINTING)
 #include "chrome/browser/printing/print_view_manager_basic.h"
 #include "components/printing/common/print_messages.h"
-#include "printing/backend/print_backend.h"
+#include "printing/backend/print_backend.h"  // nogncheck
 #include "shell/browser/printing/print_preview_message_handler.h"
 
 #if defined(OS_WIN)
@@ -59,6 +59,42 @@ class Dictionary;
 namespace network {
 class ResourceRequestBody;
 }
+
+namespace gin {
+
+template <>
+struct Converter<base::TerminationStatus> {
+  static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
+                                   const base::TerminationStatus& status) {
+    switch (status) {
+      case base::TERMINATION_STATUS_NORMAL_TERMINATION:
+        return gin::ConvertToV8(isolate, "clean-exit");
+      case base::TERMINATION_STATUS_ABNORMAL_TERMINATION:
+        return gin::ConvertToV8(isolate, "abnormal-exit");
+      case base::TERMINATION_STATUS_PROCESS_WAS_KILLED:
+        return gin::ConvertToV8(isolate, "killed");
+      case base::TERMINATION_STATUS_PROCESS_CRASHED:
+        return gin::ConvertToV8(isolate, "crashed");
+      case base::TERMINATION_STATUS_STILL_RUNNING:
+        return gin::ConvertToV8(isolate, "still-running");
+      case base::TERMINATION_STATUS_LAUNCH_FAILED:
+        return gin::ConvertToV8(isolate, "launch-failed");
+      case base::TERMINATION_STATUS_OOM:
+        return gin::ConvertToV8(isolate, "oom");
+#if defined(OS_WIN)
+      case base::TERMINATION_STATUS_INTEGRITY_FAILURE:
+        return gin::ConvertToV8(isolate, "integrity-failure");
+#endif
+      case base::TERMINATION_STATUS_MAX_ENUM:
+        NOTREACHED();
+        return gin::ConvertToV8(isolate, "");
+    }
+    NOTREACHED();
+    return gin::ConvertToV8(isolate, "");
+  }
+};
+
+}  // namespace gin
 
 namespace electron {
 
@@ -151,6 +187,7 @@ class WebContents : public gin_helper::TrackableObject<WebContents>,
   // See https://github.com/electron/electron/issues/15133.
   void DestroyWebContents(bool async);
 
+  bool GetBackgroundThrottling() const;
   void SetBackgroundThrottling(bool allowed);
   int GetProcessID() const;
   base::ProcessId GetOSProcessID() const;

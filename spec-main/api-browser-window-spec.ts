@@ -11,6 +11,7 @@ import { emittedOnce } from './events-helpers';
 import { ifit, ifdescribe } from './spec-helpers';
 import { closeWindow, closeAllWindows } from './window-helpers';
 
+const features = process.electronBinding('features');
 const fixtures = path.resolve(__dirname, '..', 'spec', 'fixtures');
 
 // Is the display's scale factor possibly causing rounding of pixel coordinate
@@ -720,7 +721,7 @@ describe('BrowserWindow module', () => {
       });
     });
 
-    describe('BrowserWindow.moveAbove(mediaSourceId)', () => {
+    ifdescribe(features.isDesktopCapturerEnabled())('BrowserWindow.moveAbove(mediaSourceId)', () => {
       it('should throw an exception if wrong formatting', async () => {
         const fakeSourceIds = [
           'none', 'screen:0', 'window:fake', 'window:1234', 'foobar:1:2'
@@ -731,6 +732,7 @@ describe('BrowserWindow module', () => {
           }).to.throw(/Invalid media source id/);
         });
       });
+
       it('should throw an exception if wrong type', async () => {
         const fakeSourceIds = [null as any, 123 as any];
         fakeSourceIds.forEach((sourceId) => {
@@ -739,6 +741,7 @@ describe('BrowserWindow module', () => {
           }).to.throw(/Error processing argument at index 0 */);
         });
       });
+
       it('should throw an exception if invalid window', async () => {
         // It is very unlikely that these window id exist.
         const fakeSourceIds = ['window:99999999:0', 'window:123456:1',
@@ -749,6 +752,7 @@ describe('BrowserWindow module', () => {
           }).to.throw(/Invalid media source id/);
         });
       });
+
       it('should not throw an exception', async () => {
         const w2 = new BrowserWindow({ show: false, title: 'window2' });
         const w2Shown = emittedOnce(w2, 'show');
@@ -777,9 +781,11 @@ describe('BrowserWindow module', () => {
 
   describe('sizing', () => {
     let w = null as unknown as BrowserWindow;
+
     beforeEach(() => {
       w = new BrowserWindow({ show: false, width: 400, height: 400 });
     });
+
     afterEach(async () => {
       await closeWindow(w);
       w = null as unknown as BrowserWindow;
@@ -1010,27 +1016,78 @@ describe('BrowserWindow module', () => {
       });
 
       ifdescribe(process.platform === 'win32')(`Fullscreen state`, () => {
-        it(`checks normal bounds when fullscreen'ed`, (done) => {
-          const bounds = w.getBounds();
-          w.once('enter-full-screen', () => {
-            expectBoundsEqual(w.getNormalBounds(), bounds);
-            done();
+        it('with properties', () => {
+          it('can be set with the fullscreen constructor option', () => {
+            w = new BrowserWindow({ fullscreen: true });
+            expect(w.fullScreen).to.be.true();
           });
-          w.show();
-          w.setFullScreen(true);
+
+          it('can be changed', () => {
+            w.fullScreen = false;
+            expect(w.fullScreen).to.be.false();
+            w.fullScreen = true;
+            expect(w.fullScreen).to.be.true();
+          });
+
+          it(`checks normal bounds when fullscreen'ed`, (done) => {
+            const bounds = w.getBounds();
+            w.once('enter-full-screen', () => {
+              expectBoundsEqual(w.getNormalBounds(), bounds);
+              done();
+            });
+            w.show();
+            w.fullScreen = true;
+          });
+
+          it(`checks normal bounds when unfullscreen'ed`, (done) => {
+            const bounds = w.getBounds();
+            w.once('enter-full-screen', () => {
+              w.fullScreen = false;
+            });
+            w.once('leave-full-screen', () => {
+              expectBoundsEqual(w.getNormalBounds(), bounds);
+              done();
+            });
+            w.show();
+            w.fullScreen = true;
+          });
         });
 
-        it(`checks normal bounds when unfullscreen'ed`, (done) => {
-          const bounds = w.getBounds();
-          w.once('enter-full-screen', () => {
+        it('with functions', () => {
+          it('can be set with the fullscreen constructor option', () => {
+            w = new BrowserWindow({ fullscreen: true });
+            expect(w.isFullScreen()).to.be.true();
+          });
+
+          it('can be changed', () => {
             w.setFullScreen(false);
+            expect(w.isFullScreen()).to.be.false();
+            w.setFullScreen(true);
+            expect(w.isFullScreen()).to.be.true();
           });
-          w.once('leave-full-screen', () => {
-            expectBoundsEqual(w.getNormalBounds(), bounds);
-            done();
+
+          it(`checks normal bounds when fullscreen'ed`, (done) => {
+            const bounds = w.getBounds();
+            w.once('enter-full-screen', () => {
+              expectBoundsEqual(w.getNormalBounds(), bounds);
+              done();
+            });
+            w.show();
+            w.setFullScreen(true);
           });
-          w.show();
-          w.setFullScreen(true);
+
+          it(`checks normal bounds when unfullscreen'ed`, (done) => {
+            const bounds = w.getBounds();
+            w.once('enter-full-screen', () => {
+              w.setFullScreen(false);
+            });
+            w.once('leave-full-screen', () => {
+              expectBoundsEqual(w.getNormalBounds(), bounds);
+              done();
+            });
+            w.show();
+            w.setFullScreen(true);
+          });
         });
       });
     });
@@ -1879,7 +1936,7 @@ describe('BrowserWindow module', () => {
       });
     });
 
-    describe('"enableRemoteModule" option', () => {
+    ifdescribe(features.isRemoteModuleEnabled())('"enableRemoteModule" option', () => {
       const generateSpecs = (description: string, sandbox: boolean) => {
         describe(description, () => {
           const preload = path.join(__dirname, 'fixtures', 'module', 'preload-remote.js');
@@ -1944,7 +2001,7 @@ describe('BrowserWindow module', () => {
         }
       }
 
-      const preload = path.join(fixtures, 'module', 'preload-sandbox.js');
+      const preload = path.join(path.resolve(__dirname, 'fixtures'), 'module', 'preload-sandbox.js');
 
       let server: http.Server = null as unknown as http.Server;
       let serverUrl: string = null as unknown as string;
@@ -2237,7 +2294,7 @@ describe('BrowserWindow module', () => {
       });
 
       // see #9387
-      it('properly manages remote object references after page reload', (done) => {
+      ifit(features.isRemoteModuleEnabled())('properly manages remote object references after page reload', (done) => {
         const w = new BrowserWindow({
           show: false,
           webPreferences: {
@@ -2270,7 +2327,7 @@ describe('BrowserWindow module', () => {
         });
       });
 
-      it('properly manages remote object references after page reload in child window', (done) => {
+      ifit(features.isRemoteModuleEnabled())('properly manages remote object references after page reload in child window', (done) => {
         const w = new BrowserWindow({
           show: false,
           webPreferences: {
@@ -4136,7 +4193,6 @@ describe('BrowserWindow module', () => {
     });
   });
 
-  const features = process.electronBinding('features');
   ifdescribe(features.isOffscreenRenderingEnabled())('offscreen rendering', () => {
     let w: BrowserWindow;
     beforeEach(function () {

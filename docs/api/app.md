@@ -414,6 +414,8 @@ and `workingDirectory` is its current working directory. Usually
 applications respond to this by making their primary window focused and
 non-minimized.
 
+**Note:** If the second instance is started by a different user than the first, the `argv` array will not include the arguments.
+
 This event is guaranteed to be emitted after the `ready` event of `app`
 gets emitted.
 
@@ -606,8 +608,10 @@ Returns `String` - The current application directory.
   * `music` Directory for a user's music.
   * `pictures` Directory for a user's pictures.
   * `videos` Directory for a user's videos.
+  * `recent` Directory for the user's recent files (Windows only).
   * `logs` Directory for your app's log folder.
   * `pepperFlashSystemPlugin` Full path to the system version of the Pepper Flash plugin.
+  * `crashDumps` Directory where crash dumps are stored.
 
 Returns `String` - A path to a special directory or file associated with `name`. On
 failure, an `Error` is thrown.
@@ -1301,6 +1305,9 @@ On macOS, setting this with any nonzero integer shows on the dock icon. On Linux
 
 **Note:** Unity launcher requires the existence of a `.desktop` file to work,
 for more information please read [Desktop Environment Integration][unity-requirement].
+
+**Note:** On macOS, you need to ensure that your application has the permission
+to display notifications for this property to take effect.
 
 ### `app.commandLine` _Readonly_
 

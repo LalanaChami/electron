@@ -128,7 +128,7 @@ describe('node feature', () => {
     let child: childProcess.ChildProcessWithoutNullStreams;
     let exitPromise: Promise<any[]>;
 
-    it('Prohibits crypto-related flags in ELECTRON_RUN_AS_NODE mode', (done) => {
+    ifit(features.isRunAsNodeEnabled())('Prohibits crypto-related flags in ELECTRON_RUN_AS_NODE mode', (done) => {
       after(async () => {
         const [code, signal] = await exitPromise;
         expect(signal).to.equal(null);
@@ -306,5 +306,18 @@ describe('node feature', () => {
   it('Can find a module using a package.json main field', () => {
     const result = childProcess.spawnSync(process.execPath, [path.resolve(fixtures, 'api', 'electron-main-module', 'app.asar')]);
     expect(result.status).to.equal(0);
+  });
+
+  ifit(features.isRunAsNodeEnabled())('handles Promise timeouts correctly', (done) => {
+    const scriptPath = path.join(fixtures, 'module', 'node-promise-timer.js');
+    const child = childProcess.spawn(process.execPath, [scriptPath], {
+      env: { ELECTRON_RUN_AS_NODE: 'true' }
+    });
+    emittedOnce(child, 'exit').then(([code, signal]) => {
+      expect(code).to.equal(0);
+      expect(signal).to.equal(null);
+      child.kill();
+      done();
+    });
   });
 });

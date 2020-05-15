@@ -37,7 +37,6 @@
 #include "shell/browser/browser_process_impl.h"
 #include "shell/browser/electron_browser_client.h"
 #include "shell/browser/electron_browser_context.h"
-#include "shell/browser/electron_paths.h"
 #include "shell/browser/electron_web_ui_controller_factory.h"
 #include "shell/browser/feature_list.h"
 #include "shell/browser/javascript_environment.h"
@@ -47,6 +46,7 @@
 #include "shell/common/api/electron_bindings.h"
 #include "shell/common/application_info.h"
 #include "shell/common/asar/asar_util.h"
+#include "shell/common/electron_paths.h"
 #include "shell/common/gin_helper/trackable_object.h"
 #include "shell/common/node_bindings.h"
 #include "shell/common/node_includes.h"
@@ -70,8 +70,8 @@
 #include "ui/gfx/x/x11_types.h"
 #include "ui/gtk/gtk_ui.h"
 #include "ui/gtk/gtk_ui_delegate.h"
-#include "ui/gtk/gtk_ui_delegate_x11.h"
 #include "ui/gtk/gtk_util.h"
+#include "ui/gtk/x/gtk_ui_delegate_x11.h"
 #include "ui/views/linux_ui/linux_ui.h"
 #endif
 
@@ -439,10 +439,14 @@ void ElectronBrowserMainParts::PreMainMessageLoopRun() {
   content::WebUIControllerFactory::RegisterFactory(
       ElectronWebUIControllerFactory::GetInstance());
 
-  // --remote-debugging-port
   auto* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kRemoteDebuggingPort))
+  if (command_line->HasSwitch(switches::kRemoteDebuggingPipe)) {
+    // --remote-debugging-pipe
+    content::DevToolsAgentHost::StartRemoteDebuggingPipeHandler();
+  } else if (command_line->HasSwitch(switches::kRemoteDebuggingPort)) {
+    // --remote-debugging-port
     DevToolsManagerDelegate::StartHttpHandler();
+  }
 
 #if !defined(OS_MACOSX)
   // The corresponding call in macOS is in ElectronApplicationDelegate.
@@ -511,6 +515,7 @@ void ElectronBrowserMainParts::PostMainMessageLoopRun() {
   node_env_.reset();
 
   fake_browser_process_->PostMainMessageLoopRun();
+  content::DevToolsAgentHost::StopRemoteDebuggingPipeHandler();
 }
 
 #if !defined(OS_MACOSX)
