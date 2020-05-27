@@ -20,7 +20,6 @@ declare namespace Electron {
   }
 
   interface ContextBridge {
-    debugGC(): { functionCount: number }
     internalContextBridge: {
       contextIsolationEnabled: boolean;
       overrideGlobalValueFromIsolatedWorld(keys: string[], value: any): void;
@@ -88,6 +87,8 @@ declare namespace Electron {
   namespace Main {
     const deprecate: ElectronInternal.DeprecationUtil;
   }
+
+  class View {}
 }
 
 declare namespace ElectronInternal {
