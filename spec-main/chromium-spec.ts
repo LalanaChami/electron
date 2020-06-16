@@ -410,8 +410,6 @@ describe('chromium features', () => {
 
         if (ext === '.js') type = 'application/javascript';
         callback({ data: content, mimeType: type } as any);
-      }, (error) => {
-        if (error) done(error);
       });
 
       const w = new BrowserWindow({
@@ -431,7 +429,8 @@ describe('chromium features', () => {
           customSession.clearStorageData({
             storages: ['serviceworkers']
           }).then(() => {
-            customSession.protocol.uninterceptProtocol('file', error => done(error));
+            customSession.protocol.uninterceptProtocol('file');
+            done();
           });
         }
       });
@@ -840,8 +839,8 @@ describe('chromium features', () => {
     ];
     const s = (url: string) => url.startsWith('file') ? 'file://...' : url;
 
-    before(async () => {
-      await promisify(protocol.registerFileProtocol)(scheme, (request, callback) => {
+    before(() => {
+      protocol.registerFileProtocol(scheme, (request, callback) => {
         if (request.url.includes('blank')) {
           callback(`${fixturesPath}/pages/blank.html`);
         } else {
@@ -849,8 +848,8 @@ describe('chromium features', () => {
         }
       });
     });
-    after(async () => {
-      await promisify(protocol.unregisterProtocol)(scheme);
+    after(() => {
+      protocol.unregisterProtocol(scheme);
     });
     afterEach(closeAllWindows);
 
@@ -929,7 +928,7 @@ describe('chromium features', () => {
     describe('custom non standard schemes', () => {
       const protocolName = 'storage';
       let contents: WebContents;
-      before((done) => {
+      before(() => {
         protocol.registerFileProtocol(protocolName, (request, callback) => {
           const parsedUrl = url.parse(request.url);
           let filename;
@@ -942,11 +941,11 @@ describe('chromium features', () => {
             default : filename = '';
           }
           callback({ path: `${fixturesPath}/pages/storage/${filename}` });
-        }, (error) => done(error));
+        });
       });
 
-      after((done) => {
-        protocol.unregisterProtocol(protocolName, () => done());
+      after(() => {
+        protocol.unregisterProtocol(protocolName);
       });
 
       beforeEach(() => {
@@ -1123,7 +1122,7 @@ describe('chromium features', () => {
           new Promise((resolve, reject) => {
             try {
               let req = window.indexedDB.open('${dbName}');
-              req.onsuccess = (event) => { 
+              req.onsuccess = (event) => {
                 let db = req.result;
                 resolve(db.name);
               }
@@ -1265,6 +1264,28 @@ describe('chromium features', () => {
         // Initial page + pushed state.
         expect((w.webContents as any).length()).to.equal(2);
       });
+    });
+  });
+
+  describe('chrome://media-internals', () => {
+    it('loads the page successfully', async () => {
+      const w = new BrowserWindow({ show: false });
+      w.loadURL('chrome://media-internals');
+      const pageExists = await w.webContents.executeJavaScript(
+        "window.hasOwnProperty('chrome') && window.chrome.hasOwnProperty('send')"
+      );
+      expect(pageExists).to.be.true();
+    });
+  });
+
+  describe('chrome://webrtc-internals', () => {
+    it('loads the page successfully', async () => {
+      const w = new BrowserWindow({ show: false });
+      w.loadURL('chrome://webrtc-internals');
+      const pageExists = await w.webContents.executeJavaScript(
+        "window.hasOwnProperty('chrome') && window.chrome.hasOwnProperty('send')"
+      );
+      expect(pageExists).to.be.true();
     });
   });
 });

@@ -744,7 +744,8 @@ void ElectronBrowserClient::AppendExtraCommandLineSwitches(
         switches::kStandardSchemes,      switches::kEnableSandbox,
         switches::kSecureSchemes,        switches::kBypassCSPSchemes,
         switches::kCORSSchemes,          switches::kFetchSchemes,
-        switches::kServiceWorkerSchemes, switches::kEnableApiFilteringLogging};
+        switches::kServiceWorkerSchemes, switches::kEnableApiFilteringLogging,
+        switches::kStreamingSchemes};
     command_line->CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
                                    kCommonSwitchNames,
                                    base::size(kCommonSwitchNames));
@@ -764,6 +765,11 @@ void ElectronBrowserClient::AppendExtraCommandLineSwitches(
     if (delegate_) {
       auto app_path = static_cast<api::App*>(delegate_)->GetAppPath();
       command_line->AppendSwitchPath(switches::kAppPath, app_path);
+    }
+
+    std::unique_ptr<base::Environment> env(base::Environment::Create());
+    if (env->HasVar("ELECTRON_PROFILE_INIT_SCRIPTS")) {
+      command_line->AppendSwitch("profile-electron-init");
     }
 
     content::WebContents* web_contents =

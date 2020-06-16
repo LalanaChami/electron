@@ -221,6 +221,9 @@ const char kFetchSchemes[] = "fetch-schemes";
 // Register schemes as CORS enabled.
 const char kCORSSchemes[] = "cors-schemes";
 
+// Register schemes as streaming responses.
+const char kStreamingSchemes[] = "streaming-schemes";
+
 // The browser process app model ID
 const char kAppUserModelId[] = "app-user-model-id";
 
@@ -277,6 +280,9 @@ const char kAuthNegotiateDelegateWhitelist[] =
 
 // If set, include the port in generated Kerberos SPNs.
 const char kEnableAuthNegotiatePort[] = "enable-auth-negotiate-port";
+
+// If set, NTLM v2 is disabled for POSIX platforms.
+const char kDisableNTLMv2[] = "disable-ntlm-v2";
 
 #if BUILDFLAG(ENABLE_BUILTIN_SPELLCHECKER)
 const char kEnableSpellcheck[] = "enable-spellcheck";

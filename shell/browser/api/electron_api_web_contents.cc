@@ -393,6 +393,9 @@ WebContents::WebContents(v8::Isolate* isolate,
     : content::WebContentsObserver(web_contents),
       type_(Type::REMOTE),
       weak_factory_(this) {
+  auto session = Session::CreateFrom(isolate, GetBrowserContext());
+  session_.Reset(isolate, session.ToV8());
+
   web_contents->SetUserAgentOverride(blink::UserAgentOverride::UserAgentOnly(
                                          GetBrowserContext()->GetUserAgent()),
                                      false);
@@ -823,25 +826,25 @@ void WebContents::ContentsZoomChange(bool zoom_in) {
 }
 
 void WebContents::EnterFullscreenModeForTab(
-    content::WebContents* source,
-    const GURL& origin,
+    content::RenderFrameHost* requesting_frame,
     const blink::mojom::FullscreenOptions& options) {
+  auto* source = content::WebContents::FromRenderFrameHost(requesting_frame);
   auto* permission_helper =
       WebContentsPermissionHelper::FromWebContents(source);
   auto callback =
       base::BindRepeating(&WebContents::OnEnterFullscreenModeForTab,
-                          base::Unretained(this), source, origin, options);
+                          base::Unretained(this), requesting_frame, options);
   permission_helper->RequestFullscreenPermission(callback);
 }
 
 void WebContents::OnEnterFullscreenModeForTab(
-    content::WebContents* source,
-    const GURL& origin,
+    content::RenderFrameHost* requesting_frame,
     const blink::mojom::FullscreenOptions& options,
     bool allowed) {
   if (!allowed)
     return;
-  CommonWebContentsDelegate::EnterFullscreenModeForTab(source, origin, options);
+  CommonWebContentsDelegate::EnterFullscreenModeForTab(requesting_frame,
+                                                       options);
   Emit("enter-html-full-screen");
 }
 
@@ -861,8 +864,6 @@ void WebContents::RendererResponsive(
     content::WebContents* source,
     content::RenderWidgetHost* render_widget_host) {
   Emit("responsive");
-  for (ExtendedWebContentsObserver& observer : observers_)
-    observer.OnRendererResponsive();
 }
 
 bool WebContents::HandleContextMenu(content::RenderFrameHost* render_frame_host,
@@ -1227,12 +1228,10 @@ void WebContents::MessageHost(const std::string& channel,
 
 #if BUILDFLAG(ENABLE_REMOTE_MODULE)
 void WebContents::DereferenceRemoteJSObject(const std::string& context_id,
-                                            int object_id,
-                                            int ref_count) {
+                                            int object_id) {
   base::ListValue args;
   args.Append(context_id);
   args.Append(object_id);
-  args.Append(ref_count);
   EmitWithSender("-ipc-message", bindings_.dispatch_context(), InvokeCallback(),
                  /* internal */ true, "ELECTRON_BROWSER_DEREFERENCE",
                  std::move(args));

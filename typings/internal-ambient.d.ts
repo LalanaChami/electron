@@ -1,4 +1,5 @@
 declare var internalBinding: any;
+declare var binding: { get: (name: string) => any; process: NodeJS.Process; createPreloadScript: (src: string) => Function };
 
 declare const BUILDFLAG: (flag: boolean) => boolean;
 
@@ -37,12 +38,13 @@ declare namespace NodeJS {
     setHiddenValue<T>(obj: any, key: string, value: T): void;
     deleteHiddenValue(obj: any, key: string): void;
     requestGarbageCollectionForTesting(): void;
-    createIDWeakMap<V>(): ElectronInternal.KeyWeakMap<number, V>;
     createDoubleIDWeakMap<V>(): ElectronInternal.KeyWeakMap<[string, number], V>;
     setRemoteCallbackFreer(fn: Function, frameId: number, contextId: String, id: number, sender: any): void
     weaklyTrackValue(value: any): void;
     clearWeaklyTrackedValues(): void;
     getWeaklyTrackedValues(): any[];
+    addRemoteObjectRef(contextId: string, id: number): void;
+    setRemoteCallbackFreer(fn: Function, contextId: string, id: number, sender: any): void
   }
 
   type DataPipe = {
